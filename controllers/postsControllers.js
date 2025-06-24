@@ -1,3 +1,5 @@
+import { client } from "../db/dbConnections.js";
+
 const posts = [
   {
     id: 1,
@@ -11,17 +13,42 @@ const posts = [
   },
 ];
 
-export const getAllPosts = (req, res) => {
-  res.json(posts);
+export const getAllPosts = async (req, res) => {
+  try {
+    const results = await client.query("SELECT * FROM posts");
+
+    if (results.rows.length === 0) {
+      return res.status(404).json({ message: "No posts found" });
+    }
+
+    return res.status(200).json(results.rows);
+  } catch (error) {
+    console.error("Error fetching posts:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 };
 
-export const getPostById = (req, res) => {
-  const { id } = req.params;
-  const post = posts.find((p) => p.id === parseInt(id));
-  if (!post) {
-    return res.status(404).json({ message: "Post not found" });
+export const getPostById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ error: "Missing posts ID" });
+    }
+
+    const results = await client.query("SELECT * FROM posts WHERE id = $1", [
+      id,
+    ]);
+
+    if (results.rows.length === 0) {
+      return res.status(404).json({ message: "posts not found" });
+    }
+
+    return res.status(200).json(results.rows[0]);
+  } catch (error) {
+    console.error("Error fetching posts:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
-  res.json(post);
 };
 
 export const createPost = (req, res) => {
