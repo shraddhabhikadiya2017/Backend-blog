@@ -1,14 +1,14 @@
-import { client } from "../db/dbConnections.js";
+import Post from "../models/Post.js";
 
 export const getAllPosts = async (req, res) => {
   try {
-    const results = await client.query("SELECT * FROM posts");
+    const posts = await Post.findAll();
 
-    if (results.rows.length === 0) {
+    if (!posts) {
       return res.status(404).json({ message: "No posts found" });
     }
 
-    return res.status(200).json(results.rows);
+    return res.status(200).json(posts);
   } catch (error) {
     console.error("Error fetching posts:", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -20,15 +20,13 @@ export const getPostById = async (req, res) => {
     const { id } = req.params;
     const postID = parseInt(id);
 
-    const results = await client.query("SELECT * FROM posts WHERE id = $1", [
-      postID,
-    ]);
+    const post = await Post.findByPk(postID);
 
-    if (results.rows.length === 0) {
-      return res.status(404).json({ message: "Posts not found" });
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
     }
 
-    return res.status(200).json(results.rows[0]);
+    return res.status(200).json(post);
   } catch (error) {
     console.error("Error fetching posts:", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -38,16 +36,20 @@ export const getPostById = async (req, res) => {
 export const createPost = async (req, res) => {
   try {
     const { author, title, content, cover } = req.body;
+
     if (!author || !title || !content || !cover) {
       return res.status(400).json({
         message: "The author, title, content and cover are required.",
       });
     }
-    const results = await client.query(
-      "INSERT INTO posts (author, title, content, cover) VALUES ($1, $2, $3, $4) RETURNING *",
-      [author, title, content, cover]
-    );
-    return res.status(201).json(results.rows[0]);
+
+    const post = await Post.create({ author, title, content, cover });
+
+    if (!post) {
+      return res.status(400).json({ message: "Post could not be created " });
+    }
+
+    return res.status(201).json(post);
   } catch (error) {
     console.error("Error creating post:", error);
     return res.status(500).json({ message: "Internal server error" });
@@ -66,21 +68,15 @@ export const updatePost = async (req, res) => {
     }
 
     const postID = parseInt(id);
-    const postExists = await client.query("SELECT * FROM posts WHERE id = $1", [
-      postID,
-    ]);
-    if (postExists.rows.length === 0) {
-      return res.status(404).json({ message: "Post not found" });
-    }
 
-    const results = await client.query(
-      "UPDATE posts SET author = $1, title = $2, content = $3, cover = $4 WHERE id = $5 RETURNING *",
-      [author, title, content, cover, postID]
-    );
+    const post = await Post.findByPk(postID);
+    if (!post) return res.status(404).json({ error: "Post not found" });
 
-    res.status(200).json(results.rows[0]);
+    const updatedPost = await post.update({ author, title, content, cover });
+
+    return res.status(200).json(updatedPost);
   } catch (error) {
-    console.error("Error updating user:", error);
+    console.error("Error updating post:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -89,24 +85,16 @@ export const deletePost = async (req, res) => {
   try {
     const { id } = req.params;
     const postID = parseInt(id);
-    const postExists = await client.query("SELECT * FROM posts WHERE id = $1", [
-      postID,
-    ]);
-    if (postExists.rows.length === 0) {
-      return res.status(404).json({ message: "Post not found" });
-    }
 
-    const results = await client.query("DELETE FROM posts WHERE id = $1", [
-      postID,
-    ]);
+    const post = await Post.findByPk(postID);
 
-    if (results.rowCount === 1) {
-      return res.status(200).json({ message: "Post deleted successfully!" });
-    }
+    if (!post) return res.status(404).json({ error: "Post not found" });
 
-    res.status(500).json({ message: "Failed to delete post" });
+    await post.destroy();
+
+    return res.status(200).json({ message: "Post deleted successfully!" });
   } catch (error) {
-    console.error("Error deleting user:", error);
+    console.error("Error deleting post:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
