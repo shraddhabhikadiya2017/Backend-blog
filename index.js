@@ -12,7 +12,11 @@ sequelize.sync();
 const app = express();
 const port = process.env.PORT || 4000;
 
-app.use(cors());
+app.use(cors({
+  origin: 'https://frontend-blog-rqn1.onrender.com', 
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
 app.use(express.json());
 app.use("/posts", postsRouter);
 
